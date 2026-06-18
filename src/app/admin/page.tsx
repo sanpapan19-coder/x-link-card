@@ -20,6 +20,7 @@ export default async function DashboardPage() {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
@@ -95,7 +96,7 @@ export default async function DashboardPage() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-slate-800">直近のクリックイベント (最近5件)</h2>
+            <h2 className="text-lg font-bold text-slate-800">直近のクリックイベント (最近15件)</h2>
             <div className="group relative">
               <HelpCircle className="w-4 h-4 text-slate-300 hover:text-slate-500 cursor-pointer" />
               <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-60 p-2.5 bg-slate-800 text-white text-[11px] rounded-lg shadow-xl leading-relaxed z-10">

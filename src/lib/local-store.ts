@@ -188,7 +188,7 @@ export async function getLocalDashboardStats() {
   const recentLogs = data.click_logs
     .slice()
     .sort((a, b) => b.clicked_at.localeCompare(a.clicked_at))
-    .slice(0, 5);
+    .slice(0, 15);
 
   return {
     totalCards: data.cards.length,

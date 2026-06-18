@@ -215,7 +215,7 @@ export async function getDashboardStats() {
       )
     `)
     .order('clicked_at', { ascending: false })
-    .limit(5);
+    .limit(15);
 
   if (cardsError || clicksError || logsError) {
     console.error('Error fetching dashboard stats:', { cardsError, clicksError, logsError });
