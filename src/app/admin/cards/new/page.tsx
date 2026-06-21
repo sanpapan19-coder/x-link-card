@@ -209,11 +209,6 @@ export default function NewCardPage() {
     }
 
     // クライアント側簡易バリデーション
-    if (!title.trim()) {
-      setStatusMessage({ type: 'error', text: 'タイトルは必須です。' });
-      setIsPending(false);
-      return;
-    }
     if (!slug.trim()) {
       setStatusMessage({ type: 'error', text: 'スラッグは必須です。' });
       setIsPending(false);
@@ -435,7 +430,7 @@ export default function NewCardPage() {
             {/* タイトル (Title) */}
             <div className="space-y-2">
               <label htmlFor="title" className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                タイトル (Title) <span className="text-rose-500 text-xs font-bold">必須</span>
+                タイトル (Title) <span className="text-slate-400 text-xs font-medium">任意</span>
               </label>
               <input
                 type="text"
@@ -445,9 +440,8 @@ export default function NewCardPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={100}
                 className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-                required
               />
-              <p className="text-xs text-slate-400">Xカードに表示されるメインタイトル</p>
+              <p className="text-xs text-slate-400">空欄の場合、Xカードではタイトル情報を出力しません。</p>
             </div>
 
             {/* 説明文 (Description) */}
@@ -527,9 +521,11 @@ export default function NewCardPage() {
               </div>
 
               {/* タイトル */}
-              <div className="text-[14px] font-bold text-slate-800 leading-snug line-clamp-2">
-                {title || '（タイトルがここに表示されます）'}
-              </div>
+              {title.trim() && (
+                <div className="text-[14px] font-bold text-slate-800 leading-snug line-clamp-2">
+                  {title}
+                </div>
+              )}
 
               {/* 説明文 */}
               <div className="text-[12px] text-slate-500 leading-normal line-clamp-2">

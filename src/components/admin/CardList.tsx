@@ -68,7 +68,7 @@ export default function CardList({ initialCards }: CardListProps) {
     try {
       const result = await deleteCardAction(deleteTarget.id);
       if (result.success) {
-        showToast('success', `カード「${deleteTarget.title}」を削除しました。`);
+        showToast('success', `カード「${deleteTarget.title || 'タイトルなし'}」を削除しました。`);
         setCards(cards.filter(c => c.id !== deleteTarget.id));
         setDeleteTarget(null);
         router.refresh();
@@ -159,7 +159,7 @@ export default function CardList({ initialCards }: CardListProps) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
                     src={card.image_url} 
-                    alt={card.title} 
+                    alt={card.title || 'カード画像'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute top-3 right-3 bg-slate-900/70 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1">
@@ -171,8 +171,8 @@ export default function CardList({ initialCards }: CardListProps) {
                 {/* 情報 */}
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
-                    <h3 className="font-bold text-slate-800 text-base leading-snug line-clamp-1" title={card.title}>
-                      {card.title}
+                    <h3 className="font-bold text-slate-800 text-base leading-snug line-clamp-1" title={card.title || 'タイトルなし'}>
+                      {card.title || 'タイトルなし'}
                     </h3>
                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed min-h-[2.5rem]">
                       {card.description || '説明文なし'}
@@ -258,7 +258,7 @@ export default function CardList({ initialCards }: CardListProps) {
               <div className="space-y-1.5">
                 <h3 className="font-extrabold text-slate-900 text-lg">カードを削除しますか？</h3>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  カード「<strong>{deleteTarget.title}</strong>」を削除すると、この中継URL（/x/{deleteTarget.slug}）は機能しなくなり、蓄積されたすべてのクリックログも完全に削除されます。この操作は取り消せません。
+                  カード「<strong>{deleteTarget.title || 'タイトルなし'}</strong>」を削除すると、この中継URL（/x/{deleteTarget.slug}）は機能しなくなり、蓄積されたすべてのクリックログも完全に削除されます。この操作は取り消せません。
                 </p>
               </div>
             </div>

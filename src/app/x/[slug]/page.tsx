@@ -50,24 +50,26 @@ export async function generateMetadata({ params }: RedirectPageProps): Promise<M
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const pageUrl = `${siteUrl.replace(/\/$/, '')}/x/${card.slug}`;
+  const title = card.title.trim() || undefined;
   const description = card.description || undefined;
+  const imageAlt = title || 'カード画像';
 
   return {
-    title: card.title,
+    title,
     description,
     alternates: { canonical: pageUrl },
     openGraph: {
       type: 'website',
-      title: card.title,
+      title,
       description,
-      images: [{ url: card.image_url, alt: card.title }],
+      images: [{ url: card.image_url, alt: imageAlt }],
       url: pageUrl,
     },
     twitter: {
       card: 'summary_large_image',
-      title: card.title,
+      title,
       description,
-      images: [{ url: card.image_url, alt: card.title }],
+      images: [{ url: card.image_url, alt: imageAlt }],
     },
   };
 }
@@ -88,7 +90,7 @@ export default async function RedirectPage({ params }: RedirectPageProps) {
   return (
     <RedirectExperience
       slug={card.slug}
-      title={card.title}
+      title={card.title || 'カード画像'}
       imageUrl={card.image_url}
       destinationUrl={card.destination_url}
     />

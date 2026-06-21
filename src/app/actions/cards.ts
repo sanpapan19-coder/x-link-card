@@ -271,7 +271,6 @@ export async function createCardAction(formData: FormData): Promise<{ success: b
     const imageFile = formData.get('image') as File;
 
     // バリデーション
-    if (!title) return { success: false, error: 'タイトルは必須です。' };
     if (!slug) return { success: false, error: 'スラッグは必須です。' };
     if (!isValidSlug(slug)) {
       return { success: false, error: 'スラッグは英数字、ハイフン、アンダースコアのみ使用できます。' };
@@ -306,7 +305,7 @@ export async function createCardAction(formData: FormData): Promise<{ success: b
 
     if (isLocalStoreEnabled()) {
       const result = await createLocalCard({
-        title,
+        title: title.trim(),
         description: description || null,
         slug,
         image_url: imageUrl,
@@ -327,7 +326,7 @@ export async function createCardAction(formData: FormData): Promise<{ success: b
     const { error: insertError } = await supabaseAdmin
       .from('cards')
       .insert({
-        title,
+        title: title.trim(),
         description: description || null,
         slug,
         image_url: imageUrl,
@@ -371,7 +370,6 @@ export async function updateCardAction(
     }
 
     // バリデーション
-    if (!title) return { success: false, error: 'タイトルは必須です。' };
     if (!slug) return { success: false, error: 'スラッグは必須です。' };
     if (!isValidSlug(slug)) {
       return { success: false, error: 'スラッグは英数字、ハイフン、アンダースコアのみ使用できます。' };
@@ -409,7 +407,7 @@ export async function updateCardAction(
 
     if (isLocalStoreEnabled()) {
       const result = await updateLocalCard(id, {
-        title,
+        title: title.trim(),
         description: description || null,
         slug,
         image_url: imageUrl,
@@ -439,7 +437,7 @@ export async function updateCardAction(
     const { error: updateError } = await supabaseAdmin
       .from('cards')
       .update({
-        title,
+        title: title.trim(),
         description: description || null,
         slug,
         image_url: imageUrl,
