@@ -29,6 +29,7 @@ export default function CardImageEditor({
   const [sourceFileName, setSourceFileName] = useState('card-image');
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [showPlayMark, setShowPlayMark] = useState(false);
   const [playMarkSize, setPlayMarkSize] = useState(12);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -78,10 +79,11 @@ export default function CardImageEditor({
         setSourceUrl(nextSourceUrl);
         setSourceFileName(file.name);
         setCrop({ x: 0, y: 0 });
-      setZoom(1);
-      setPlayMarkSize(12);
-      cropPixelsRef.current = null;
-      setCroppedAreaPixels(null);
+        setZoom(1);
+        setShowPlayMark(false);
+        setPlayMarkSize(12);
+        cropPixelsRef.current = null;
+        setCroppedAreaPixels(null);
       };
       probe.onerror = () => {
         URL.revokeObjectURL(nextSourceUrl);
@@ -122,6 +124,7 @@ export default function CardImageEditor({
         const file = await createCardImage(
           sourceUrl,
           croppedAreaPixels,
+          showPlayMark,
           playMarkSize,
           sourceFileName
         );
@@ -140,7 +143,7 @@ export default function CardImageEditor({
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [croppedAreaPixels, onChange, playMarkSize, setProcessingState, sourceFileName, sourceUrl]);
+  }, [croppedAreaPixels, onChange, playMarkSize, setProcessingState, showPlayMark, sourceFileName, sourceUrl]);
 
   useEffect(() => {
     return () => {
@@ -234,13 +237,15 @@ export default function CardImageEditor({
           showGrid
           objectFit="cover"
         />
-        <div
-          className="pointer-events-none absolute left-1/2 top-1/2 z-10 aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-sky-500/95 shadow-lg"
-          style={{ width: playPreviewWidth }}
-          aria-hidden="true"
-        >
-          <Play className="h-full w-full translate-x-[4%] fill-white p-[25%] text-white" />
-        </div>
+        {showPlayMark && (
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 z-10 aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-sky-500/95 shadow-lg"
+            style={{ width: playPreviewWidth }}
+            aria-hidden="true"
+          >
+            <Play className="h-full w-full translate-x-[4%] fill-white p-[25%] text-white" />
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -259,24 +264,38 @@ export default function CardImageEditor({
             className="w-full accent-indigo-600"
           />
         </label>
-        <label className="space-y-2 text-xs font-bold text-slate-600">
-          <span className="flex items-center gap-1.5">
+        <div className="space-y-2 text-xs font-bold text-slate-600">
+          <label className="flex min-h-7 cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showPlayMark}
+              onChange={(event) => {
+                setProcessingState(true);
+                setShowPlayMark(event.target.checked);
+              }}
+              className="h-4 w-4 accent-sky-500"
+            />
             <Play className="h-4 w-4 fill-sky-500 text-sky-500" />
-            再生マークの大きさ
-          </span>
-          <input
-            type="range"
-            min="8"
-            max="18"
-            step="0.5"
-            value={playMarkSize}
-            onChange={(event) => {
-              setProcessingState(true);
-              setPlayMarkSize(Number(event.target.value));
-            }}
-            className="w-full accent-sky-500"
-          />
-        </label>
+            再生マークを表示する
+          </label>
+          {showPlayMark && (
+            <label className="block space-y-2">
+              <span>再生マークの大きさ</span>
+              <input
+                type="range"
+                min="8"
+                max="18"
+                step="0.5"
+                value={playMarkSize}
+                onChange={(event) => {
+                  setProcessingState(true);
+                  setPlayMarkSize(Number(event.target.value));
+                }}
+                className="w-full accent-sky-500"
+              />
+            </label>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">

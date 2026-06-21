@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
-const REDIRECT_DELAY_MS = 1100;
+const REDIRECT_DELAY_MS = 400;
 
 type RedirectExperienceProps = {
   slug: string;

@@ -46,6 +46,7 @@ function drawPlayMark(context: CanvasRenderingContext2D, sizePercent: number) {
 export async function createCardImage(
   sourceUrl: string,
   crop: Area,
+  showPlayMark: boolean,
   playMarkSize: number,
   sourceFileName: string
 ): Promise<File> {
@@ -72,7 +73,9 @@ export async function createCardImage(
     CARD_IMAGE_WIDTH,
     CARD_IMAGE_HEIGHT
   );
-  drawPlayMark(context, playMarkSize);
+  if (showPlayMark) {
+    drawPlayMark(context, playMarkSize);
+  }
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

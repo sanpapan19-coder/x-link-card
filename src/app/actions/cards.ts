@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { Card, CardWithClickCount } from '@/types';
 import {
@@ -100,7 +100,7 @@ async function uploadImage(file: File): Promise<string> {
     .from('card-images')
     .upload(filePath, buffer, {
       contentType: file.type,
-      cacheControl: '3600',
+      cacheControl: '31536000',
       upsert: false
     });
 
@@ -319,6 +319,7 @@ export async function createCardAction(formData: FormData): Promise<{ success: b
 
       revalidatePath('/admin');
       revalidatePath('/admin/cards');
+      updateTag('redirect-cards');
       return { success: true };
     }
 
@@ -342,6 +343,7 @@ export async function createCardAction(formData: FormData): Promise<{ success: b
 
     revalidatePath('/admin');
     revalidatePath('/admin/cards');
+    updateTag('redirect-cards');
     return { success: true };
   } catch (err: unknown) {
     console.error('Create action system error:', err);
@@ -430,6 +432,7 @@ export async function updateCardAction(
       revalidatePath(`/admin/cards/${id}/edit`);
       revalidatePath(`/x/${slug}`);
       revalidatePath(`/x/${existingCard.slug}`);
+      updateTag('redirect-cards');
       return { success: true };
     }
 
@@ -465,6 +468,7 @@ export async function updateCardAction(
     revalidatePath(`/admin/cards/${id}/edit`);
     revalidatePath(`/x/${slug}`);
     revalidatePath(`/x/${existingCard.slug}`);
+    updateTag('redirect-cards');
     return { success: true };
   } catch (err: unknown) {
     console.error('Update action system error:', err);
@@ -481,6 +485,7 @@ export async function deleteCardAction(id: string): Promise<{ success: boolean; 
       const result = await deleteLocalCard(id);
       revalidatePath('/admin');
       revalidatePath('/admin/cards');
+      updateTag('redirect-cards');
       return result;
     }
 
@@ -505,6 +510,8 @@ export async function deleteCardAction(id: string): Promise<{ success: boolean; 
 
     revalidatePath('/admin');
     revalidatePath('/admin/cards');
+    revalidatePath(`/x/${card.slug}`);
+    updateTag('redirect-cards');
     return { success: true };
   } catch (err: unknown) {
     console.error('Delete action system error:', err);

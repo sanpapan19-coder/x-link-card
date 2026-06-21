@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { addLocalClickLog, getLocalCardBySlug, isLocalStoreEnabled } from '@/lib/local-store';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
+export const preferredRegion = 'hnd1';
+
 const SLUG_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const MAX_REFERER_LENGTH = 2048;
 
