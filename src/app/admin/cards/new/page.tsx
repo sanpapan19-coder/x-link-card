@@ -14,6 +14,7 @@ import {
   Settings
 } from 'lucide-react';
 import { createCardAction } from '@/app/actions/cards';
+import CardImageEditor from '@/components/admin/CardImageEditor';
 
 const LAST_DESTINATION_URL_KEY = 'post-tool:last-destination-url';
 
@@ -27,7 +28,7 @@ export default function NewCardPage() {
   const [destinationUrl, setDestinationUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState(false);
+  const [isImageProcessing, setIsImageProcessing] = useState(false);
 
   // フィードバック表示用
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -63,53 +64,26 @@ export default function NewCardPage() {
     }
   };
 
-  // 画像選択時の処理
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setStatusMessage({ type: 'error', text: '画像ファイルを選択してください。' });
-        return;
-      }
-      setImageFile(file);
-      const url = URL.createObjectURL(file);
-      setImagePreviewUrl(url);
-    }
-  };
+  const handleProcessedImage = React.useCallback((file: File) => {
+    setImageFile(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+  }, []);
 
-  // ドラッグ＆ドロップの処理
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setStatusMessage({ type: 'error', text: '画像ファイルを選択してください。' });
-        return;
-      }
-      setImageFile(file);
-      const url = URL.createObjectURL(file);
-      setImagePreviewUrl(url);
-    }
-  };
+  const handleImageProcessingChange = React.useCallback((processing: boolean) => {
+    setIsImageProcessing(processing);
+  }, []);
 
   // フォーム送信
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatusMessage(null);
     setIsPending(true);
+
+    if (isImageProcessing) {
+      setStatusMessage({ type: 'error', text: '画像の加工が完了するまでお待ちください。' });
+      setIsPending(false);
+      return;
+    }
 
     // クライアント側簡易バリデーション
     if (!title.trim()) {
@@ -223,55 +197,10 @@ export default function NewCardPage() {
               <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                 カード表示用画像 <span className="text-rose-500 text-xs font-bold">必須</span>
               </label>
-              <div 
-                className={`relative border-2 border-dashed rounded-2xl p-6 transition-all duration-200 text-center ${
-                  dragActive 
-                    ? 'border-indigo-500 bg-indigo-50/20' 
-                    : imageFile 
-                      ? 'border-slate-200 hover:border-slate-300' 
-                      : 'border-slate-200 hover:border-indigo-400 bg-slate-50/30'
-                }`}
-                onDragEnter={handleDrag}
-                onDragOver={handleDrag}
-                onDragLeave={handleDrag}
-                onDrop={handleDrop}
-              >
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                
-                {imagePreviewUrl ? (
-                  <div className="space-y-4">
-                    <div className="relative aspect-video max-w-sm mx-auto rounded-lg overflow-hidden border border-slate-100 shadow-inner">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img 
-                        src={imagePreviewUrl} 
-                        alt="アップロード画像" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 font-medium">
-                      ファイルをドラッグまたはクリックして差し替え (現在のファイル: {imageFile?.name})
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 py-4">
-                    <div className="inline-flex p-3 bg-indigo-50 text-indigo-500 rounded-2xl">
-                      <Upload className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">画像をここにドラッグ＆ドロップ</p>
-                      <p className="text-xs text-slate-400 mt-1">または、クリックしてファイルを選択</p>
-                    </div>
-                    <div className="text-[10px] text-slate-400 bg-slate-50 inline-block px-3 py-1 rounded-full border border-slate-100">
-                      推奨比率: 1.91:1 (X Summary Large Image用)
-                    </div>
-                  </div>
-                )}
-              </div>
+              <CardImageEditor
+                onChange={handleProcessedImage}
+                onProcessingChange={handleImageProcessingChange}
+              />
             </div>
 
             {/* スラッグ (Slug) */}
@@ -362,12 +291,16 @@ export default function NewCardPage() {
           <div className="pt-4 border-t border-slate-100 flex gap-4">
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || isImageProcessing}
               className={`flex-1 inline-flex justify-center items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-indigo-100 ${
                 isPending ? 'opacity-75 cursor-not-allowed' : ''
               }`}
             >
-              {isPending ? 'アップロード＆保存中...' : 'カードを作成して保存'}
+              {isPending
+                ? 'アップロード＆保存中...'
+                : isImageProcessing
+                  ? '画像を加工中...'
+                  : 'カードを作成して保存'}
             </button>
             <Link
               href="/admin/cards"

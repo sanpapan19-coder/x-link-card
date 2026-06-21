@@ -68,7 +68,8 @@ export async function saveLocalImage(file: File): Promise<string> {
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const fileExt = file.name.split('.').pop() || 'png';
+  const fileExt =
+    file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/webp' ? 'webp' : 'png';
   const fileName = `${crypto.randomUUID()}.${fileExt}`;
   const filePath = path.join(publicImageDir, fileName);
 

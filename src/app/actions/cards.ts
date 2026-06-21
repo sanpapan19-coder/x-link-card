@@ -29,6 +29,25 @@ type RelatedCard = {
   image_url: string | null;
 };
 
+const MAX_IMAGE_FILE_SIZE = 15 * 1024 * 1024;
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+function validateImageFile(file: File): string | null {
+  if (!IMAGE_EXTENSIONS[file.type]) {
+    return '画像はJPEG・PNG・WebP形式のファイルを選択してください。';
+  }
+
+  if (file.size > MAX_IMAGE_FILE_SIZE) {
+    return '画像は15MB以下のファイルを選択してください。';
+  }
+
+  return null;
+}
+
 function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : '予期せぬエラーが発生しました。';
 }
@@ -72,7 +91,7 @@ async function uploadImage(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   
-  const fileExt = file.name.split('.').pop() || 'png';
+  const fileExt = IMAGE_EXTENSIONS[file.type];
   const fileName = `${crypto.randomUUID()}.${fileExt}`;
   const filePath = `images/${fileName}`;
 
@@ -264,6 +283,10 @@ export async function createCardAction(formData: FormData): Promise<{ success: b
     if (!imageFile || imageFile.size === 0) {
       return { success: false, error: '画像は必須です。' };
     }
+    const imageValidationError = validateImageFile(imageFile);
+    if (imageValidationError) {
+      return { success: false, error: imageValidationError };
+    }
 
     if (!isLocalStoreEnabled()) {
       // スラッグの重複チェック
@@ -376,6 +399,10 @@ export async function updateCardAction(
 
     // 画像が差し替えられた場合
     if (imageFile && imageFile.size > 0) {
+      const imageValidationError = validateImageFile(imageFile);
+      if (imageValidationError) {
+        return { success: false, error: imageValidationError };
+      }
       oldImageUrlToDelete = existingCard.image_url;
       imageUrl = isLocalStoreEnabled() ? await saveLocalImage(imageFile) : await uploadImage(imageFile);
     }
