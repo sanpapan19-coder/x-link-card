@@ -117,7 +117,7 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[1200px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/70 text-slate-500 font-semibold text-xs border-b border-slate-100">
                   <th className="px-6 py-4">画像</th>
@@ -158,7 +158,7 @@ export default async function DashboardPage() {
                         <ExternalLink className="w-3.5 h-3.5" />
                       </Link>
                     </td>
-                    <td className="px-6 py-4 max-w-[250px] truncate text-slate-500 text-xs" title={log.userAgent}>
+                    <td className="px-6 py-4 w-[420px] min-w-[420px] whitespace-normal break-all text-slate-500 text-xs leading-relaxed" title={log.userAgent}>
                       {log.userAgent}
                     </td>
                     <td className="px-6 py-4 max-w-[150px] truncate text-slate-500 text-xs" title={log.referer}>
