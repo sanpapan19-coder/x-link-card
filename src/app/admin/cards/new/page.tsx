@@ -11,12 +11,53 @@ import {
   AlertCircle,
   CheckCircle,
   Eye,
-  Settings
+  RefreshCw,
+  Save,
+  Settings,
+  Shuffle
 } from 'lucide-react';
 import { createCardAction } from '@/app/actions/cards';
 import CardImageEditor from '@/components/admin/CardImageEditor';
 
 const LAST_DESTINATION_URL_KEY = 'post-tool:last-destination-url';
+const DESTINATION_URL_POOL_KEY = 'post-tool:destination-url-pool';
+const MAX_DESTINATION_URLS = 30;
+
+function isValidHttpUrl(value: string): boolean {
+  if (value.length > 2048) return false;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function parseUrlPool(value: string) {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const invalidLines = lines.filter((line) => !isValidHttpUrl(line));
+  const uniqueUrls = [...new Set(lines)];
+
+  return { lines, invalidLines, uniqueUrls };
+}
+
+function generateRandomSlug(): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = new Uint8Array(8);
+  window.crypto.getRandomValues(bytes);
+  const randomPart = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
+  return `x-${randomPart}`;
+}
+
+function chooseRandomUrl(urls: string[], currentUrl = ''): string {
+  const candidates = urls.length > 1 ? urls.filter((url) => url !== currentUrl) : urls;
+  const pool = candidates.length > 0 ? candidates : urls;
+  return pool[Math.floor(Math.random() * pool.length)] || '';
+}
 
 export default function NewCardPage() {
   const router = useRouter();
@@ -26,6 +67,9 @@ export default function NewCardPage() {
   const [description, setDescription] = useState('');
   const [slug, setSlug] = useState('');
   const [destinationUrl, setDestinationUrl] = useState('');
+  const [urlPoolText, setUrlPoolText] = useState('');
+  const [savedUrlCount, setSavedUrlCount] = useState(0);
+  const [poolMessage, setPoolMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
@@ -45,10 +89,35 @@ export default function NewCardPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const savedDestinationUrl = window.localStorage.getItem(LAST_DESTINATION_URL_KEY);
-      if (savedDestinationUrl) {
-        setDestinationUrl(savedDestinationUrl);
+      setSlug(generateRandomSlug());
+
+      let savedUrls: string[] = [];
+      const storedPool = window.localStorage.getItem(DESTINATION_URL_POOL_KEY);
+      if (storedPool) {
+        try {
+          const parsed = JSON.parse(storedPool);
+          if (Array.isArray(parsed)) {
+            savedUrls = parsed.filter((url): url is string => typeof url === 'string' && isValidHttpUrl(url));
+          }
+        } catch {
+          savedUrls = [];
+        }
       }
+
+      if (savedUrls.length === 0) {
+        const previousUrl = window.localStorage.getItem(LAST_DESTINATION_URL_KEY);
+        if (previousUrl && isValidHttpUrl(previousUrl)) {
+          savedUrls = [previousUrl];
+          window.localStorage.setItem(DESTINATION_URL_POOL_KEY, JSON.stringify(savedUrls));
+        }
+      }
+
+      const limitedUrls = [...new Set(savedUrls)].slice(0, MAX_DESTINATION_URLS);
+      window.localStorage.setItem(DESTINATION_URL_POOL_KEY, JSON.stringify(limitedUrls));
+      setUrlPoolText(limitedUrls.join('\n'));
+      setSavedUrlCount(limitedUrls.length);
+      setDestinationUrl(chooseRandomUrl(limitedUrls));
+      window.localStorage.removeItem(LAST_DESTINATION_URL_KEY);
     }, 0);
 
     return () => clearTimeout(timer);
@@ -56,12 +125,66 @@ export default function NewCardPage() {
 
   const handleDestinationUrlChange = (value: string) => {
     setDestinationUrl(value);
+  };
 
-    if (value.trim()) {
-      window.localStorage.setItem(LAST_DESTINATION_URL_KEY, value);
-    } else {
-      window.localStorage.removeItem(LAST_DESTINATION_URL_KEY);
+  const handleSaveUrlPool = () => {
+    const { lines, invalidLines, uniqueUrls } = parseUrlPool(urlPoolText);
+
+    if (lines.length === 0) {
+      setPoolMessage({ type: 'error', text: '候補URLを1件以上入力してください。' });
+      return;
     }
+
+    if (invalidLines.length > 0) {
+      setPoolMessage({
+        type: 'error',
+        text: `http:// または https:// で始まる正しいURLに修正してください（不正: ${invalidLines.length}件）。`,
+      });
+      return;
+    }
+
+    if (uniqueUrls.length > MAX_DESTINATION_URLS) {
+      setPoolMessage({ type: 'error', text: `候補URLは最大${MAX_DESTINATION_URLS}件まで登録できます。` });
+      return;
+    }
+
+    window.localStorage.setItem(DESTINATION_URL_POOL_KEY, JSON.stringify(uniqueUrls));
+    setUrlPoolText(uniqueUrls.join('\n'));
+    setSavedUrlCount(uniqueUrls.length);
+    setDestinationUrl(chooseRandomUrl(uniqueUrls, destinationUrl));
+    setPoolMessage({
+      type: 'success',
+      text:
+        lines.length === uniqueUrls.length
+          ? `${uniqueUrls.length}件を保存し、遷移先を選択しました。`
+          : `重複を除いた${uniqueUrls.length}件を保存し、遷移先を選択しました。`,
+    });
+  };
+
+  const handleRandomizeDestination = () => {
+    const storedPool = window.localStorage.getItem(DESTINATION_URL_POOL_KEY);
+    let urls: string[] = [];
+
+    if (storedPool) {
+      try {
+        const parsed = JSON.parse(storedPool);
+        if (Array.isArray(parsed)) {
+          urls = [...new Set(
+            parsed.filter((url): url is string => typeof url === 'string' && isValidHttpUrl(url))
+          )].slice(0, MAX_DESTINATION_URLS);
+        }
+      } catch {
+        urls = [];
+      }
+    }
+
+    if (urls.length === 0) {
+      setPoolMessage({ type: 'error', text: '先に候補URLを保存してください。' });
+      return;
+    }
+
+    setDestinationUrl(chooseRandomUrl(urls, destinationUrl));
+    setPoolMessage({ type: 'success', text: '遷移先URLを選び直しました。' });
   };
 
   const handleProcessedImage = React.useCallback((file: File) => {
@@ -218,20 +341,77 @@ export default function NewCardPage() {
                   placeholder="pc-sale"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.trim())}
-                  className="block w-full min-w-0 flex-1 rounded-none rounded-r-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className="block w-full min-w-0 flex-1 rounded-none border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setSlug(generateRandomSlug())}
+                  className="inline-flex min-w-11 items-center justify-center rounded-r-xl border border-l-0 border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-indigo-600"
+                  title="スラッグを再生成"
+                  aria-label="スラッグを再生成"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
               </div>
               <p className="text-xs text-slate-400 flex items-center gap-1">
                 <HelpCircle className="w-3.5 h-3.5 text-slate-300" />
-                半角英数字、ハイフン、アンダースコアのみ使用可能。重複は禁止です。
+                自動生成されます。必要な場合のみ編集または再生成してください。
               </p>
+            </div>
+
+            {/* 遷移先URL候補 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="destination_url_pool" className="text-sm font-bold text-slate-700">
+                  遷移先URL候補
+                </label>
+                <span className="text-xs font-semibold text-slate-400">保存済み {savedUrlCount}/{MAX_DESTINATION_URLS}件</span>
+              </div>
+              <textarea
+                id="destination_url_pool"
+                value={urlPoolText}
+                onChange={(event) => {
+                  setUrlPoolText(event.target.value);
+                  setPoolMessage(null);
+                }}
+                rows={7}
+                placeholder={'https://example.com/campaign-a\nhttps://example.com/campaign-b'}
+                className="block w-full resize-y rounded-xl border border-slate-200 px-4 py-3 font-mono text-xs leading-relaxed text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-slate-400">1行に1件、最大30件まで登録できます。</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveUrlPool}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    候補を保存
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRandomizeDestination}
+                    disabled={savedUrlCount === 0}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Shuffle className="h-3.5 w-3.5" />
+                    再抽選
+                  </button>
+                </div>
+              </div>
+              {poolMessage && (
+                <p className={`text-xs font-semibold ${poolMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {poolMessage.text}
+                </p>
+              )}
             </div>
 
             {/* 遷移先URL (Destination URL) */}
             <div className="space-y-2">
               <label htmlFor="destination_url" className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                遷移先 (Destination URL) <span className="text-rose-500 text-xs font-bold">必須</span>
+                今回選択された遷移先 <span className="text-rose-500 text-xs font-bold">必須</span>
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -248,7 +428,7 @@ export default function NewCardPage() {
                 />
               </div>
               <p className="text-xs text-slate-400">
-                ユーザーが画像カードをタップした際の最終遷移先 (http:// または https:// で始まるURL)
+                カード保存後はこのURLに固定されます。必要であれば直接修正できます。
               </p>
             </div>
 
