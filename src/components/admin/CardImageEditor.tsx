@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Cropper, { type Area, type Point } from 'react-easy-crop';
 import { ImagePlus, Play, Upload, ZoomIn } from 'lucide-react';
-import { createCardImage } from '@/lib/card-image';
+import { createCardImage, releaseCardImageSource } from '@/lib/card-image';
 
 const CARD_ASPECT = 1200 / 628;
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
@@ -48,6 +48,8 @@ export default function CardImageEditor({
     (file?: File) => {
       if (!file) return;
 
+      generationRef.current += 1;
+
       if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
         setError('JPEG・PNG・WebP形式の画像を選択してください。');
         return;
@@ -72,6 +74,7 @@ export default function CardImageEditor({
         }
 
         if (sourceUrlRef.current) {
+          releaseCardImageSource(sourceUrlRef.current);
           URL.revokeObjectURL(sourceUrlRef.current);
         }
 
@@ -149,6 +152,7 @@ export default function CardImageEditor({
     return () => {
       generationRef.current += 1;
       if (sourceUrlRef.current) {
+        releaseCardImageSource(sourceUrlRef.current);
         URL.revokeObjectURL(sourceUrlRef.current);
       }
     };
@@ -228,10 +232,7 @@ export default function CardImageEditor({
           aspect={CARD_ASPECT}
           onCropChange={setCrop}
           onCropComplete={onCropComplete}
-          onZoomChange={(value) => {
-            setProcessingState(true);
-            setZoom(value);
-          }}
+          onZoomChange={setZoom}
           minZoom={1}
           maxZoom={3}
           showGrid
