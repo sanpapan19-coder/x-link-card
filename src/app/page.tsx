@@ -1,73 +1,106 @@
-import React from 'react';
-import Link from 'next/link';
-import { Sparkles, ArrowRight, ExternalLink } from 'lucide-react';
+import Link from "next/link";
+import { ArrowRight, Link2, ShieldCheck } from "lucide-react";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-slate-50 font-sans relative overflow-hidden">
-      {/* 背景の光彩エフェクト */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-200/40 rounded-full filter blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-violet-200/40 rounded-full filter blur-3xl pointer-events-none"></div>
-
-      {/* ヘッダー */}
-      <header className="max-w-6xl mx-auto w-full px-6 py-6 flex justify-between items-center z-10">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-lg text-white">
-            <Sparkles className="w-5 h-5" />
+    <main className="min-h-screen bg-white text-slate-900">
+      <header className="border-b border-slate-200">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white">
+              <Link2 className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-lg font-bold leading-none">LinkTweet</p>
+              <p className="mt-1 text-xs text-slate-500">画像付きリンクの確認ページ</p>
+            </div>
           </div>
-          <span className="font-bold text-slate-800 tracking-tight">X-Link Card</span>
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+          >
+            管理画面
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
         </div>
-        <Link 
-          href="/admin" 
-          className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1"
-        >
-          管理画面を開く
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
       </header>
 
-      {/* メインヒーローエリア */}
-      <main className="flex-1 flex items-center justify-center px-6 py-12 z-10">
-        <div className="max-w-3xl text-center space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-100/60 rounded-full px-4.5 py-1.5 text-xs text-indigo-700 font-semibold shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              X (旧Twitter) カードメタタグ生成ツール
-            </div>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              Xの投稿画像を<br className="sm:hidden" />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">リンク付きカード</span>にする
-            </h1>
-            <p className="max-w-xl mx-auto text-slate-500 text-sm sm:text-base md:text-lg leading-relaxed">
-              X (旧Twitter) 上で画像をタップしたユーザーを、任意の遷移先URLへ自動転送する中継URLを生成・管理します。Xクローラーの自動検知と詳細なリダイレクト統計機能を備えています。
-            </p>
+      <section className="mx-auto grid max-w-5xl gap-10 px-6 py-14 md:grid-cols-[1.05fr_0.95fr] md:items-center md:py-20">
+        <div>
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+            移動先を確認してから外部サイトへ進みます
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-normal text-slate-950 md:text-5xl">
+            SNSで共有された画像付きリンクの移動先を確認できます
+          </h1>
+          <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600">
+            LinkTweet は、SNS上で共有された画像付きリンクから外部サイトへ移動する前に、
+            画像、タイトル、移動先ドメインを確認するためのページです。
+            表示内容を確認したうえで、リンク先へ進むことができます。
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/admin"
-              className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-2xl transition-all shadow-lg shadow-indigo-100 hover:shadow-indigo-200 duration-200"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              管理画面ダッシュボードへ
-              <ArrowRight className="w-5 h-5" />
+              管理画面を開く
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto inline-flex justify-center items-center gap-1.5 px-8 py-3.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-bold rounded-2xl transition-all"
+              href="#notice"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              ドキュメント
-              <ExternalLink className="w-4 h-4 text-slate-400" />
+              注意事項を見る
             </a>
           </div>
         </div>
-      </main>
 
-      {/* フッター */}
-      <footer className="border-t border-slate-100 py-6 text-center text-xs text-slate-400 z-10">
-        <p>© 2026 Xリンクカード生成ツール — Next.js & Supabase</p>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-6">
+          <h2 className="text-lg font-bold text-slate-950">リンクを開く前に確認できること</h2>
+          <div className="mt-5 space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-900">表示画像</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                共有されたリンクに関連する画像を確認できます。
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-900">移動先ドメイン</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                外部サイトへ移動する前に、移動先のドメインを確認できます。
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="font-semibold text-slate-900">外部サイトへの移動</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                内容を確認したあと、対象のキャンペーンページや公式ページへ進みます。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="notice" className="border-t border-slate-200 bg-slate-50">
+        <div className="mx-auto max-w-5xl px-6 py-10">
+          <h2 className="text-xl font-bold text-slate-950">ご利用時の注意</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">
+              表示された画像やタイトルと、移動先の内容が一致しているか確認してください。
+            </p>
+            <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">
+              不審な内容や心当たりのないリンクは開かないでください。
+            </p>
+            <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">
+              外部サイトの内容やサービスは、各移動先サイトの運営者が管理しています。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-slate-200 px-6 py-6 text-center text-xs text-slate-500">
+        © 2026 LinkTweet
       </footer>
-    </div>
+    </main>
   );
 }

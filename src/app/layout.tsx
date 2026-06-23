@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "X画像リンクカード生成ツール",
-  description: "X投稿用の画像リンクカードを生成し、クリックを計測する管理ツール",
+  title: "LinkTweet | 画像付きリンクの確認ページ",
+  description:
+    "SNSで共有された画像付きリンクから外部サイトへ移動する前に、画像・タイトル・移動先ドメインを確認できます。",
 };
 
 export default function RootLayout({
