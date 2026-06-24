@@ -12,6 +12,15 @@ function getRedirectDelayMs() {
   );
 }
 
+function getDisplayHost(url: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    return host.endsWith('tiktok.com') ? 'tiktok.com' : host;
+  } catch {
+    return '外部サイト';
+  }
+}
+
 type RedirectExperienceProps = {
   slug: string;
   title: string;
@@ -27,6 +36,7 @@ export default function RedirectExperience({
 }: RedirectExperienceProps) {
   const logStartedRef = useRef(false);
   const navigationStartedRef = useRef(false);
+  const displayHost = getDisplayHost(destinationUrl);
 
   const recordClick = useCallback(() => {
     if (logStartedRef.current) return;
@@ -72,12 +82,21 @@ export default function RedirectExperience({
           />
         </div>
 
-        <div className="flex flex-1 items-center justify-center py-8" aria-live="polite">
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center"
+          aria-live="polite"
+        >
           <span
             className="h-9 w-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-sky-500"
             role="status"
             aria-label="読み込み中"
           />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-slate-700">動画サイトへ移動します</p>
+            <p className="text-xs text-slate-500">
+              移動先: <span className="font-semibold text-slate-700">{displayHost}</span>
+            </p>
+          </div>
         </div>
 
         <a
