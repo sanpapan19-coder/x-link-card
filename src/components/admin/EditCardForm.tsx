@@ -11,11 +11,13 @@ import {
   AlertCircle,
   CheckCircle,
   Eye,
-  Settings
+  Settings,
+  Clipboard
 } from 'lucide-react';
 import { Card } from '@/types';
 import { updateCardAction } from '@/app/actions/cards';
 import CardImageEditor from '@/components/admin/CardImageEditor';
+import { buildXPostText, getStoredPostText, moveStoredPostText } from '@/lib/post-text-store';
 
 interface EditCardFormProps {
   card: Card;
@@ -29,6 +31,8 @@ export default function EditCardForm({ card }: EditCardFormProps) {
   const [description, setDescription] = useState(card.description || '');
   const [slug, setSlug] = useState(card.slug);
   const [destinationUrl, setDestinationUrl] = useState(card.destination_url);
+  const [postText, setPostText] = useState('');
+  const [copyMessage, setCopyMessage] = useState('');
   
   // 画像関連の状態
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -41,12 +45,34 @@ export default function EditCardForm({ card }: EditCardFormProps) {
 
   // サイトURLホスト名の取得 (プレビュー表示用)
   const [hostName, setHostName] = useState('example.com');
+  const [siteOrigin, setSiteOrigin] = useState('https://example.com');
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const timer = setTimeout(() => setHostName(window.location.host), 0);
+      const timer = setTimeout(() => {
+        setHostName(window.location.host);
+        setSiteOrigin(window.location.origin);
+        setPostText(getStoredPostText(card.slug));
+      }, 0);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [card.slug]);
+
+  const xPostText = buildXPostText(postText, slug, siteOrigin);
+  const xPostLength = xPostText.length;
+
+  const handleCopyPostText = async () => {
+    if (!xPostText) {
+      setCopyMessage('コピーする投稿文がありません。');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(xPostText);
+      setCopyMessage('X投稿用テキストをコピーしました。');
+    } catch {
+      setCopyMessage('コピーに失敗しました。手動で選択してコピーしてください。');
+    }
+  };
 
   const handleProcessedImage = React.useCallback((file: File) => {
     setImageFile(file);
@@ -104,6 +130,7 @@ export default function EditCardForm({ card }: EditCardFormProps) {
     try {
       const result = await updateCardAction(card.id, formData);
       if (result.success) {
+        moveStoredPostText(card.slug, slug, postText);
         setStatusMessage({ type: 'success', text: 'カードを更新しました！一覧へ戻ります...' });
         setTimeout(() => {
           router.push('/admin/cards');
@@ -253,6 +280,68 @@ export default function EditCardForm({ card }: EditCardFormProps) {
                 maxLength={200}
                 className="block w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
               />
+            </div>
+            <div className="space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="post_text" className="text-sm font-bold text-slate-700">
+                    投稿本文確認用
+                  </label>
+                  <span className={`text-xs font-semibold ${postText.length > 140 ? 'text-rose-600' : 'text-slate-400'}`}>
+                    本文 {postText.length}/140文字
+                  </span>
+                </div>
+                <textarea
+                  id="post_text"
+                  value={postText}
+                  onChange={(event) => {
+                    setPostText(event.target.value);
+                    setCopyMessage('');
+                  }}
+                  rows={3}
+                  placeholder="新規作成時のpostがここに残ります。必要に応じて手直しできます。"
+                  className="block w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+                {postText.length > 140 && (
+                  <p className="text-xs font-semibold text-rose-600">
+                    投稿本文が140文字を超えています。短くしてください。
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2 border-t border-indigo-100 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="x_post_text" className="text-sm font-bold text-slate-700">
+                    X投稿用テキスト
+                  </label>
+                  <span className={`text-xs font-semibold ${xPostLength > 280 ? 'text-rose-600' : 'text-slate-400'}`}>
+                    URL込み {xPostLength}文字
+                  </span>
+                </div>
+                <textarea
+                  id="x_post_text"
+                  value={xPostText}
+                  readOnly
+                  rows={5}
+                  className="block w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-slate-800 outline-none"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-slate-500">
+                    保存すると、この投稿本文もこのPCのブラウザに保存されます。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopyPostText}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Clipboard className="h-3.5 w-3.5" />
+                    投稿文をコピー
+                  </button>
+                </div>
+                {copyMessage && (
+                  <p className="text-xs font-semibold text-slate-500">{copyMessage}</p>
+                )}
+              </div>
             </div>
           </div>
 

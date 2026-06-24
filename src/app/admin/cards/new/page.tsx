@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { createCardAction } from '@/app/actions/cards';
 import CardImageEditor from '@/components/admin/CardImageEditor';
+import { buildXPostText, setStoredPostText } from '@/lib/post-text-store';
 
 const LAST_DESTINATION_URL_KEY = 'post-tool:last-destination-url';
 const DESTINATION_URL_POOL_KEY = 'post-tool:destination-url-pool';
@@ -107,8 +108,7 @@ export default function NewCardPage() {
     }
   }, []);
 
-  const cardUrl = slug.trim() ? `${siteOrigin}/x/${slug.trim()}` : '';
-  const xPostText = [postText.trim(), cardUrl].filter(Boolean).join('\n\n');
+  const xPostText = buildXPostText(postText, slug, siteOrigin);
   const xPostLength = xPostText.length;
 
   const handleApplyGptsOutput = () => {
@@ -320,6 +320,7 @@ export default function NewCardPage() {
     try {
       const result = await createCardAction(formData);
       if (result.success) {
+        setStoredPostText(slug, postText);
         setStatusMessage({ type: 'success', text: 'カードを作成しました！一覧へ戻ります...' });
         setTimeout(() => {
           router.push('/admin/cards');

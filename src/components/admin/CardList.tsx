@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { CardWithClickCount } from '@/types';
 import { deleteCardAction } from '@/app/actions/cards';
+import { buildXPostText, getStoredPostText } from '@/lib/post-text-store';
 
 interface CardListProps {
   initialCards: CardWithClickCount[];
@@ -26,6 +27,10 @@ export default function CardList({ initialCards }: CardListProps) {
   const router = useRouter();
   const [cards, setCards] = useState<CardWithClickCount[]>(initialCards);
   const [searchTerm, setSearchTerm] = useState('');
+  const postTextBySlug = React.useMemo(
+    () => Object.fromEntries(cards.map((card) => [card.slug, getStoredPostText(card.slug)])),
+    [cards]
+  );
   
   // 削除モーダル用の状態
   const [deleteTarget, setDeleteTarget] = useState<CardWithClickCount | null>(null);
@@ -58,6 +63,25 @@ export default function CardList({ initialCards }: CardListProps) {
           showToast('error', 'URLのコピーに失敗しました。');
         });
     }
+  };
+
+  const handleCopyPostText = (slug: string) => {
+    if (typeof window === 'undefined') return;
+
+    const postText = postTextBySlug[slug] || '';
+    if (!postText.trim()) {
+      showToast('error', '保存済みの投稿文がありません。編集画面で入力してください。');
+      return;
+    }
+
+    const xPostText = buildXPostText(postText, slug, window.location.origin);
+    navigator.clipboard.writeText(xPostText)
+      .then(() => {
+        showToast('success', 'X投稿用テキストをコピーしました。');
+      })
+      .catch(() => {
+        showToast('error', '投稿文のコピーに失敗しました。');
+      });
   };
 
   // 削除の実行
@@ -221,7 +245,16 @@ export default function CardList({ initialCards }: CardListProps) {
                   </div>
 
                   {/* アクションボタン */}
-                  <div className="grid grid-cols-2 gap-2 pt-2">
+                  <div className="grid grid-cols-3 gap-2 pt-2">
+                    <button
+                      onClick={() => handleCopyPostText(card.slug)}
+                      disabled={!postTextBySlug[card.slug]}
+                      className="inline-flex justify-center items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-100 rounded-xl text-xs font-semibold text-slate-600 transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+                      title={postTextBySlug[card.slug] ? 'X投稿用テキストをコピー' : '保存済みの投稿文がありません'}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      投稿文
+                    </button>
                     <Link
                       href={`/admin/cards/${card.id}/edit`}
                       className="inline-flex justify-center items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-100 rounded-xl text-xs font-semibold text-slate-600 transition-colors"
