@@ -14,7 +14,9 @@ import {
   RefreshCw,
   Save,
   Settings,
-  Shuffle
+  Shuffle,
+  Clipboard,
+  Sparkles
 } from 'lucide-react';
 import { createCardAction } from '@/app/actions/cards';
 import CardImageEditor from '@/components/admin/CardImageEditor';
@@ -22,6 +24,12 @@ import CardImageEditor from '@/components/admin/CardImageEditor';
 const LAST_DESTINATION_URL_KEY = 'post-tool:last-destination-url';
 const DESTINATION_URL_POOL_KEY = 'post-tool:destination-url-pool';
 const MAX_DESTINATION_URLS = 30;
+
+type GptsCardOutput = {
+  title?: unknown;
+  description?: unknown;
+  post?: unknown;
+};
 
 function isValidHttpUrl(value: string): boolean {
   if (value.length > 2048) return false;
@@ -59,6 +67,10 @@ function chooseRandomUrl(urls: string[], currentUrl = ''): string {
   return pool[Math.floor(Math.random() * pool.length)] || '';
 }
 
+function normalizeGptsText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export default function NewCardPage() {
   const router = useRouter();
 
@@ -67,6 +79,10 @@ export default function NewCardPage() {
   const [description, setDescription] = useState('');
   const [slug, setSlug] = useState('');
   const [destinationUrl, setDestinationUrl] = useState('');
+  const [gptsPasteText, setGptsPasteText] = useState('');
+  const [postText, setPostText] = useState('');
+  const [gptsMessage, setGptsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copyMessage, setCopyMessage] = useState('');
   const [urlPoolText, setUrlPoolText] = useState('');
   const [savedUrlCount, setSavedUrlCount] = useState(0);
   const [poolMessage, setPoolMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -80,12 +96,70 @@ export default function NewCardPage() {
 
   // サイトURLホスト名の取得 (プレビュー表示用)
   const [hostName, setHostName] = useState('example.com');
+  const [siteOrigin, setSiteOrigin] = useState('https://example.com');
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const timer = setTimeout(() => setHostName(window.location.host), 0);
+      const timer = setTimeout(() => {
+        setHostName(window.location.host);
+        setSiteOrigin(window.location.origin);
+      }, 0);
       return () => clearTimeout(timer);
     }
   }, []);
+
+  const cardUrl = slug.trim() ? `${siteOrigin}/x/${slug.trim()}` : '';
+  const xPostText = [postText.trim(), cardUrl].filter(Boolean).join('\n\n');
+  const xPostLength = xPostText.length;
+
+  const handleApplyGptsOutput = () => {
+    setGptsMessage(null);
+    setCopyMessage('');
+
+    if (!gptsPasteText.trim()) {
+      setGptsMessage({ type: 'error', text: 'GPTsの出力JSONを貼り付けてください。' });
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(gptsPasteText) as GptsCardOutput;
+      const nextTitle = normalizeGptsText(parsed.title);
+      const nextDescription = normalizeGptsText(parsed.description);
+      const nextPost = normalizeGptsText(parsed.post);
+
+      if (!nextTitle && !nextDescription && !nextPost) {
+        setGptsMessage({
+          type: 'error',
+          text: 'title、description、post のいずれかを含むJSONを貼り付けてください。',
+        });
+        return;
+      }
+
+      if (nextTitle) setTitle(nextTitle);
+      if (nextDescription) setDescription(nextDescription);
+      if (nextPost) setPostText(nextPost);
+
+      setGptsMessage({ type: 'success', text: 'GPTs出力をフォームに反映しました。' });
+    } catch {
+      setGptsMessage({
+        type: 'error',
+        text: 'JSON形式が正しくありません。GPTsの出力をそのまま貼り付けてください。',
+      });
+    }
+  };
+
+  const handleCopyPostText = async () => {
+    if (!xPostText) {
+      setCopyMessage('コピーする投稿文がありません。');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(xPostText);
+      setCopyMessage('X投稿用テキストをコピーしました。');
+    } catch {
+      setCopyMessage('コピーに失敗しました。手動で選択してコピーしてください。');
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -428,6 +502,105 @@ export default function NewCardPage() {
             </div>
 
             {/* タイトル (Title) */}
+            <div className="space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-indigo-600" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">GPTs出力を一括反映</h2>
+                  <p className="text-xs text-slate-500">
+                    title、description、post を含むJSONを貼り付けると、カード文言と投稿文に反映します。
+                  </p>
+                </div>
+              </div>
+              <textarea
+                value={gptsPasteText}
+                onChange={(event) => {
+                  setGptsPasteText(event.target.value);
+                  setGptsMessage(null);
+                }}
+                rows={6}
+                spellCheck={false}
+                placeholder={'{\n  "title": "カードタイトル",\n  "description": "カード説明文",\n  "post": "X投稿本文"\n}'}
+                className="block w-full resize-y rounded-xl border border-indigo-100 bg-white px-4 py-3 font-mono text-xs leading-relaxed text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleApplyGptsOutput}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm shadow-indigo-100 hover:bg-indigo-700"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  フォームに反映
+                </button>
+                {gptsMessage && (
+                  <p className={`text-xs font-semibold ${gptsMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {gptsMessage.text}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2 border-t border-indigo-100 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="post_text" className="text-sm font-bold text-slate-700">
+                    投稿本文確認用
+                  </label>
+                  <span className={`text-xs font-semibold ${postText.length > 140 ? 'text-rose-600' : 'text-slate-400'}`}>
+                    本文 {postText.length}/140文字
+                  </span>
+                </div>
+                <textarea
+                  id="post_text"
+                  value={postText}
+                  onChange={(event) => {
+                    setPostText(event.target.value);
+                    setCopyMessage('');
+                  }}
+                  rows={3}
+                  placeholder="GPTsのpostがここに入ります。必要に応じて手直しできます。"
+                  className="block w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+                {postText.length > 140 && (
+                  <p className="text-xs font-semibold text-rose-600">
+                    投稿本文が140文字を超えています。GPTs側またはこの欄で短くしてください。
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2 border-t border-indigo-100 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="x_post_text" className="text-sm font-bold text-slate-700">
+                    X投稿用テキスト
+                  </label>
+                  <span className={`text-xs font-semibold ${xPostLength > 280 ? 'text-rose-600' : 'text-slate-400'}`}>
+                    URL込み {xPostLength}文字
+                  </span>
+                </div>
+                <textarea
+                  id="x_post_text"
+                  value={xPostText}
+                  readOnly
+                  rows={5}
+                  className="block w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm leading-relaxed text-slate-800 outline-none"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-slate-500">
+                    投稿本文の下に、現在のスラッグから生成したカードURLを自動で追加します。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopyPostText}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Clipboard className="h-3.5 w-3.5" />
+                    投稿文をコピー
+                  </button>
+                </div>
+                {copyMessage && (
+                  <p className="text-xs font-semibold text-slate-500">{copyMessage}</p>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label htmlFor="title" className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                 タイトル (Title) <span className="text-slate-400 text-xs font-medium">任意</span>
