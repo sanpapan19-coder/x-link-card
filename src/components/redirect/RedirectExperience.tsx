@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
-const REDIRECT_DELAY_MS = 400;
+const REDIRECT_DELAY_MIN_MS = 650;
+const REDIRECT_DELAY_MAX_MS = 950;
+
+function getRedirectDelayMs() {
+  return Math.floor(
+    REDIRECT_DELAY_MIN_MS +
+      Math.random() * (REDIRECT_DELAY_MAX_MS - REDIRECT_DELAY_MIN_MS + 1)
+  );
+}
 
 type RedirectExperienceProps = {
   slug: string;
@@ -47,7 +55,7 @@ export default function RedirectExperience({
 
   useEffect(() => {
     recordClick();
-    const timer = window.setTimeout(navigate, REDIRECT_DELAY_MS);
+    const timer = window.setTimeout(navigate, getRedirectDelayMs());
     return () => window.clearTimeout(timer);
   }, [navigate, recordClick]);
 
