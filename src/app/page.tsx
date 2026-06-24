@@ -99,7 +99,18 @@ export default function HomePage() {
       </section>
 
       <footer className="border-t border-slate-200 px-6 py-6 text-center text-xs text-slate-500">
-        © 2026 LinkTweet
+        <nav className="mb-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+          <Link href="/about" className="hover:text-slate-900">
+            このサイトについて
+          </Link>
+          <Link href="/privacy" className="hover:text-slate-900">
+            プライバシーポリシー
+          </Link>
+          <Link href="/contact" className="hover:text-slate-900">
+            お問い合わせ
+          </Link>
+        </nav>
+        <p>© 2026 LinkTweet</p>
       </footer>
     </main>
   );
