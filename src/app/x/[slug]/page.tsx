@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import RedirectExperience from '@/components/redirect/RedirectExperience';
+import { getClientIp, shouldRecordCardOpen, recordClickBySlug } from '@/lib/click-tracking';
 import { getLocalCardBySlug, isLocalStoreEnabled } from '@/lib/local-store';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { Card } from '@/types';
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 export const preferredRegion = 'hnd1';
 
 interface RedirectPageProps {
@@ -104,9 +106,24 @@ export default async function RedirectPage({ params }: RedirectPageProps) {
     notFound();
   }
 
+  const requestHeaders = await headers();
+  const userAgent = requestHeaders.get('user-agent');
+
+  if (shouldRecordCardOpen(requestHeaders)) {
+    const result = await recordClickBySlug({
+      slug: card.slug,
+      userAgent,
+      referer: requestHeaders.get('referer'),
+      ipAddress: getClientIp(requestHeaders),
+    });
+
+    if (!result.ok) {
+      console.error(`Failed to record click for ${card.slug}: ${result.message}`);
+    }
+  }
+
   return (
     <RedirectExperience
-      slug={card.slug}
       title={getMetadataTitle(card)}
       imageUrl={card.image_url}
       destinationUrl={card.destination_url}

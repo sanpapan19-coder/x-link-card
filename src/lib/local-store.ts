@@ -1,7 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Card, CardWithClickCount, ClickLog } from '@/types';
+import { lock } from 'proper-lockfile';
+import type { Card, CardWithClickCount, ClickLog } from '@/types';
 
 type LocalData = {
   cards: Card[];
@@ -31,23 +32,47 @@ export function isLocalStoreEnabled() {
 async function ensureStore() {
   await fs.mkdir(dataDir, { recursive: true });
   await fs.mkdir(publicImageDir, { recursive: true });
-
-  try {
-    await fs.access(dbPath);
-  } catch {
-    await writeData({ cards: [], click_logs: [] });
-  }
 }
 
 async function readData(): Promise<LocalData> {
   await ensureStore();
-  const raw = await fs.readFile(dbPath, 'utf8');
-  return JSON.parse(raw) as LocalData;
+  try {
+    const raw = await fs.readFile(dbPath, 'utf8');
+    return JSON.parse(raw) as LocalData;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { cards: [], click_logs: [] };
+    }
+    throw error;
+  }
 }
 
 async function writeData(data: LocalData) {
   await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(dbPath, JSON.stringify(data, null, 2), 'utf8');
+  const temporaryPath = path.join(dataDir, `${crypto.randomUUID()}.tmp`);
+  try {
+    await fs.writeFile(temporaryPath, JSON.stringify(data, null, 2), 'utf8');
+    await fs.rename(temporaryPath, dbPath);
+  } finally {
+    await fs.rm(temporaryPath, { force: true });
+  }
+}
+
+async function updateData<T>(update: (data: LocalData) => T): Promise<T> {
+  await ensureStore();
+  // Lock the entire read-modify-write cycle, including across server processes.
+  const release = await lock(dbPath, {
+    realpath: false,
+    retries: { retries: 100, minTimeout: 10, maxTimeout: 100, randomize: true },
+  });
+  try {
+    const data = await readData();
+    const result = update(data);
+    await writeData(data);
+    return result;
+  } finally {
+    await release();
+  }
 }
 
 function localSiteUrl() {
@@ -118,25 +143,25 @@ export async function createLocalCard(input: {
   image_url: string;
   destination_url: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const data = await readData();
-  if (data.cards.some((card) => card.slug === input.slug)) {
-    return { success: false, error: 'このスラッグは既に登録されています。重複しないスラッグを指定してください。' };
-  }
+  return updateData((data) => {
+    if (data.cards.some((card) => card.slug === input.slug)) {
+      return { success: false, error: 'このスラッグは既に登録されています。重複しないスラッグを指定してください。' };
+    }
 
-  const now = new Date().toISOString();
-  data.cards.push({
-    id: crypto.randomUUID(),
-    title: input.title,
-    description: input.description,
-    slug: input.slug,
-    image_url: input.image_url,
-    destination_url: input.destination_url,
-    created_at: now,
-    updated_at: now,
+    const now = new Date().toISOString();
+    data.cards.push({
+      id: crypto.randomUUID(),
+      title: input.title,
+      description: input.description,
+      slug: input.slug,
+      image_url: input.image_url,
+      destination_url: input.destination_url,
+      created_at: now,
+      updated_at: now,
+    });
+
+    return { success: true };
   });
-
-  await writeData(data);
-  return { success: true };
 }
 
 export async function updateLocalCard(
@@ -149,36 +174,38 @@ export async function updateLocalCard(
     destination_url: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const data = await readData();
-  const index = data.cards.findIndex((card) => card.id === id);
-  if (index === -1) {
-    return { success: false, error: '指定されたカードが見つかりません。' };
-  }
+  return updateData((data) => {
+    const index = data.cards.findIndex((card) => card.id === id);
+    if (index === -1) {
+      return { success: false, error: '指定されたカードが見つかりません。' };
+    }
 
-  if (data.cards.some((card) => card.id !== id && card.slug === input.slug)) {
-    return { success: false, error: 'このスラッグは既に別のカードで登録されています。' };
-  }
+    if (data.cards.some((card) => card.id !== id && card.slug === input.slug)) {
+      return { success: false, error: 'このスラッグは既に別のカードで登録されています。' };
+    }
 
-  data.cards[index] = {
-    ...data.cards[index],
-    ...input,
-    updated_at: new Date().toISOString(),
-  };
+    data.cards[index] = {
+      ...data.cards[index],
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
 
-  await writeData(data);
-  return { success: true };
+    return { success: true };
+  });
 }
 
 export async function deleteLocalCard(id: string): Promise<{ success: boolean; error?: string }> {
-  const data = await readData();
-  const card = data.cards.find((item) => item.id === id);
+  const card = await updateData((data) => {
+    const target = data.cards.find((item) => item.id === id);
+    if (!target) return null;
+    data.cards = data.cards.filter((item) => item.id !== id);
+    data.click_logs = data.click_logs.filter((log) => log.card_id !== id);
+    return target;
+  });
   if (!card) {
     return { success: false, error: '削除対象のカードが見つかりません。' };
   }
 
-  data.cards = data.cards.filter((item) => item.id !== id);
-  data.click_logs = data.click_logs.filter((log) => log.card_id !== id);
-  await writeData(data);
   await deleteLocalImage(card.image_url);
 
   return { success: true };
@@ -216,15 +243,17 @@ export async function addLocalClickLog(input: {
   referer: string | null;
   ip_hash: string | null;
 }) {
-  const data = await readData();
-  data.click_logs.push({
-    id: crypto.randomUUID(),
-    card_id: input.card_id,
-    user_agent: input.user_agent,
-    referer: input.referer,
-    ip_hash: input.ip_hash,
-    clicked_at: new Date().toISOString(),
+  await updateData((data) => {
+    if (!data.cards.some((card) => card.id === input.card_id)) {
+      throw new Error('Card not found.');
+    }
+    data.click_logs.push({
+      id: crypto.randomUUID(),
+      card_id: input.card_id,
+      user_agent: input.user_agent,
+      referer: input.referer,
+      ip_hash: input.ip_hash,
+      clicked_at: new Date().toISOString(),
+    });
   });
-
-  await writeData(data);
 }

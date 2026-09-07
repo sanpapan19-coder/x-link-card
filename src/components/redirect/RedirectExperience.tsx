@@ -22,52 +22,29 @@ function getDisplayHost(url: string) {
 }
 
 type RedirectExperienceProps = {
-  slug: string;
   title: string;
   imageUrl: string;
   destinationUrl: string;
 };
 
 export default function RedirectExperience({
-  slug,
   title,
   imageUrl,
   destinationUrl,
 }: RedirectExperienceProps) {
-  const logStartedRef = useRef(false);
   const navigationStartedRef = useRef(false);
   const displayHost = getDisplayHost(destinationUrl);
-
-  const recordClick = useCallback(() => {
-    if (logStartedRef.current) return;
-    logStartedRef.current = true;
-
-    void fetch('/api/clicks', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        slug,
-        referer: document.referrer || null,
-      }),
-      keepalive: true,
-      cache: 'no-store',
-    }).catch((error) => {
-      console.error('Failed to record click:', error);
-    });
-  }, [slug]);
 
   const navigate = useCallback(() => {
     if (navigationStartedRef.current) return;
     navigationStartedRef.current = true;
-    recordClick();
     window.location.replace(destinationUrl);
-  }, [destinationUrl, recordClick]);
+  }, [destinationUrl]);
 
   useEffect(() => {
-    recordClick();
     const timer = window.setTimeout(navigate, getRedirectDelayMs());
     return () => window.clearTimeout(timer);
-  }, [navigate, recordClick]);
+  }, [navigate]);
 
   return (
     <main className="min-h-dvh bg-white px-4 py-5 sm:px-6 sm:py-8">
@@ -92,7 +69,7 @@ export default function RedirectExperience({
             aria-label="読み込み中"
           />
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-700">動画サイトへ移動します</p>
+            <p className="text-sm font-semibold text-slate-700">TikTokにて公開中</p>
             <p className="text-xs text-slate-500">
               移動先: <span className="font-semibold text-slate-700">{displayHost}</span>
             </p>

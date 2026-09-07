@@ -30,6 +30,7 @@ type RelatedCard = {
 };
 
 const MAX_IMAGE_FILE_SIZE = 15 * 1024 * 1024;
+const CLICK_LOG_PAGE_SIZE = 1000;
 const IMAGE_EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -54,6 +55,48 @@ function getErrorMessage(err: unknown): string {
 
 function getRelatedCard(cards: RecentClickLog['cards']): RelatedCard | null {
   return Array.isArray(cards) ? cards[0] || null : cards;
+}
+
+async function getClickCountsByCardId(): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  let offset = 0;
+  let totalRows: number | null = null;
+
+  while (totalRows === null || offset < totalRows) {
+    const { data, count, error } = await supabaseAdmin
+      .from('click_logs')
+      .select('card_id', { count: 'exact' })
+      .order('clicked_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + CLICK_LOG_PAGE_SIZE - 1);
+
+    if (error) {
+      console.error('Error fetching click logs for card counts:', error);
+      throw new Error('クリック数の集計に失敗しました。');
+    }
+
+    if (totalRows === null) {
+      if (typeof count !== 'number') {
+        throw new Error('クリックログの総件数を取得できませんでした。');
+      }
+      totalRows = count;
+    }
+
+    const rows = data || [];
+    if (rows.length === 0) {
+      if (offset < totalRows) {
+        throw new Error('クリックログを最後まで取得できませんでした。');
+      }
+      break;
+    }
+
+    for (const row of rows) {
+      counts.set(row.card_id, (counts.get(row.card_id) || 0) + 1);
+    }
+    offset += rows.length;
+  }
+
+  return counts;
 }
 
 // URLバリデーション (http/httpsのみ、javascript:やdata:の排除)
@@ -159,25 +202,10 @@ export async function getCards(): Promise<CardWithClickCount[]> {
     return [];
   }
 
-  // click_logsのカウントを並列で取得（または単一クエリで集計）
-  // 簡易的にカード毎に件数カウントを取得
-  const { data: clickCounts, error: countError } = await supabaseAdmin
-    .from('click_logs')
-    .select('card_id');
-
-  if (countError) {
-    console.error('Error fetching click counts:', countError);
-    return cards.map(c => ({ ...c, click_count: 0 }));
-  }
-
-  const countsMap = (clickCounts || []).reduce((acc: Record<string, number>, log) => {
-    acc[log.card_id] = (acc[log.card_id] || 0) + 1;
-    return acc;
-  }, {});
-
-  return cards.map(card => ({
+  const clickCounts = await getClickCountsByCardId();
+  return cards.map((card) => ({
     ...card,
-    click_count: countsMap[card.id] || 0
+    click_count: clickCounts.get(card.id) || 0,
   }));
 }
 

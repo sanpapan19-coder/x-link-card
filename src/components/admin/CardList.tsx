@@ -25,8 +25,12 @@ interface CardListProps {
 
 export default function CardList({ initialCards }: CardListProps) {
   const router = useRouter();
-  const [cards, setCards] = useState<CardWithClickCount[]>(initialCards);
+  const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(() => new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const cards = React.useMemo(
+    () => initialCards.filter((card) => !deletedCardIds.has(card.id)),
+    [deletedCardIds, initialCards]
+  );
   const postTextBySlug = React.useMemo(
     () => Object.fromEntries(cards.map((card) => [card.slug, getStoredPostText(card.slug)])),
     [cards]
@@ -93,7 +97,7 @@ export default function CardList({ initialCards }: CardListProps) {
       const result = await deleteCardAction(deleteTarget.id);
       if (result.success) {
         showToast('success', `カード「${deleteTarget.title || 'タイトルなし'}」を削除しました。`);
-        setCards(cards.filter(c => c.id !== deleteTarget.id));
+        setDeletedCardIds((current) => new Set(current).add(deleteTarget.id));
         setDeleteTarget(null);
         router.refresh();
       } else {

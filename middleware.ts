@@ -10,6 +10,12 @@ function unauthorized() {
 }
 
 export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/x/')) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-card-request-method', request.method);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   const password = process.env.ADMIN_PASSWORD;
 
   if (!password) {
@@ -44,5 +50,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/x/:path*'],
 };
