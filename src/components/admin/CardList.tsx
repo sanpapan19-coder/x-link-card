@@ -37,6 +37,8 @@ export default function CardList({ initialCards, clickPeriod }: CardListProps) {
     () => initialCards.filter((card) => !deletedCardIds.has(card.id)),
     [deletedCardIds, initialCards]
   );
+  const totalClicks = cards.reduce((total, card) => total + card.click_count, 0);
+  const periodLabel = CLICK_PERIOD_OPTIONS.find((option) => option.value === clickPeriod)?.label || '全期間';
   const postTextBySlug = React.useMemo(
     () => Object.fromEntries(cards.map((card) => [card.slug, getStoredPostText(card.slug)])),
     [cards]
@@ -147,7 +149,7 @@ export default function CardList({ initialCards, clickPeriod }: CardListProps) {
     <div className="space-y-6">
       {/* 検索・ツールバー */}
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-center gap-3">
           <span className="text-xs font-semibold text-slate-500 shrink-0">集計期間</span>
           <nav
             aria-label="クリック集計期間"
@@ -171,7 +173,16 @@ export default function CardList({ initialCards, clickPeriod }: CardListProps) {
               );
             })}
           </nav>
-          <span className="text-[11px] text-slate-400 lg:ml-auto whitespace-nowrap">
+          <div
+            role="status"
+            aria-label={`${periodLabel}の全カード合計クリック数`}
+            className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-slate-700 lg:ml-auto"
+          >
+            <span className="text-xs font-semibold">{periodLabel}の合計</span>
+            <span className="text-xl font-bold tabular-nums">{totalClicks.toLocaleString('ja-JP')}</span>
+            <span className="text-xs">回</span>
+          </div>
+          <span className="text-[11px] text-slate-400 whitespace-nowrap">
             日本時間で表示
           </span>
         </div>
