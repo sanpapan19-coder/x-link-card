@@ -18,7 +18,7 @@ export default async function CardsPage({ searchParams }: CardsPageProps) {
   const cards = await getCards(period);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="cards-page space-y-8 animate-in fade-in duration-300">
       {/* ヘッダー */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

@@ -237,7 +237,7 @@ export default function CardList({ initialCards, clickPeriod }: CardListProps) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-[1600px]:grid-cols-5 gap-4">
           {filteredCards.map((card) => {
             return (
               <div 
@@ -262,7 +262,7 @@ export default function CardList({ initialCards, clickPeriod }: CardListProps) {
                 </div>
 
                 {/* 情報 */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-5 min-[1600px]:p-3 flex-1 min-w-0 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <h3 className="font-bold text-slate-800 text-base leading-snug line-clamp-1" title={card.title || 'タイトルなし'}>
                       {card.title || 'タイトルなし'}
