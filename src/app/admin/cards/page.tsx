@@ -3,12 +3,19 @@ import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
 import { getCards } from '@/app/actions/cards';
 import CardList from '@/components/admin/CardList';
+import { parseClickPeriod } from '@/lib/click-period';
 
 // データを常に最新に保つため動的レンダリングを強制
 export const dynamic = 'force-dynamic';
 
-export default async function CardsPage() {
-  const cards = await getCards();
+type CardsPageProps = {
+  searchParams: Promise<{ period?: string | string[] }>;
+};
+
+export default async function CardsPage({ searchParams }: CardsPageProps) {
+  const params = await searchParams;
+  const period = parseClickPeriod(params.period);
+  const cards = await getCards(period);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -28,7 +35,7 @@ export default async function CardsPage() {
       </div>
 
       {/* カードリスト */}
-      <CardList initialCards={cards} />
+      <CardList initialCards={cards} clickPeriod={period} />
     </div>
   );
 }

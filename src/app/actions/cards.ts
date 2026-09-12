@@ -4,6 +4,11 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { Card, CardWithClickCount } from '@/types';
 import {
+  ClickPeriod,
+  ClickPeriodRange,
+  getClickPeriodRange,
+} from '@/lib/click-period';
+import {
   createLocalCard,
   deleteLocalCard,
   deleteLocalImage,
@@ -27,6 +32,11 @@ type RelatedCard = {
   title: string | null;
   slug: string | null;
   image_url: string | null;
+};
+
+type ClickCountRow = {
+  card_id: string;
+  click_count: number | string;
 };
 
 const MAX_IMAGE_FILE_SIZE = 15 * 1024 * 1024;
@@ -57,18 +67,86 @@ function getRelatedCard(cards: RecentClickLog['cards']): RelatedCard | null {
   return Array.isArray(cards) ? cards[0] || null : cards;
 }
 
-async function getClickCountsByCardId(): Promise<Map<string, number>> {
+function addClickCount(counts: Map<string, number>, cardId: string, value: number) {
+  counts.set(cardId, (counts.get(cardId) || 0) + value);
+}
+
+async function getClickCountsByCardIdFromRpc(
+  range: ClickPeriodRange
+): Promise<Map<string, number> | null> {
   const counts = new Map<string, number>();
   let offset = 0;
   let totalRows: number | null = null;
 
   while (totalRows === null || offset < totalRows) {
     const { data, count, error } = await supabaseAdmin
+      .rpc(
+        'get_card_click_counts',
+        { p_start: range.start, p_end: range.end },
+        { count: 'exact' }
+      )
+      .order('card_id', { ascending: true })
+      .range(offset, offset + CLICK_LOG_PAGE_SIZE - 1);
+
+    if (error) {
+      console.warn('Card click count RPC is unavailable; using paginated fallback:', error);
+      return null;
+    }
+
+    if (totalRows === null) {
+      if (typeof count !== 'number') {
+        console.warn('Card click count RPC did not return a row count; using paginated fallback.');
+        return null;
+      }
+      totalRows = count;
+    }
+
+    const rows = (data || []) as ClickCountRow[];
+    if (rows.length === 0) {
+      if (offset < totalRows) {
+        console.warn('Card click count RPC returned an incomplete result; using paginated fallback.');
+        return null;
+      }
+      break;
+    }
+
+    for (const row of rows) {
+      const value = Number(row.click_count);
+      if (row.card_id && Number.isFinite(value) && value >= 0) {
+        addClickCount(counts, row.card_id, value);
+      }
+    }
+    offset += rows.length;
+  }
+
+  return counts;
+}
+
+async function getClickCountsByCardIdWithPagination(
+  range: ClickPeriodRange
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  let offset = 0;
+  let totalRows: number | null = null;
+
+  while (totalRows === null || offset < totalRows) {
+    let query = supabaseAdmin
       .from('click_logs')
       .select('card_id', { count: 'exact' })
       .order('clicked_at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(offset, offset + CLICK_LOG_PAGE_SIZE - 1);
+      .order('id', { ascending: true });
+
+    if (range.start) {
+      query = query.gte('clicked_at', range.start);
+    }
+    if (range.end) {
+      query = query.lt('clicked_at', range.end);
+    }
+
+    const { data, count, error } = await query.range(
+      offset,
+      offset + CLICK_LOG_PAGE_SIZE - 1
+    );
 
     if (error) {
       console.error('Error fetching click logs for card counts:', error);
@@ -91,12 +169,19 @@ async function getClickCountsByCardId(): Promise<Map<string, number>> {
     }
 
     for (const row of rows) {
-      counts.set(row.card_id, (counts.get(row.card_id) || 0) + 1);
+      addClickCount(counts, row.card_id, 1);
     }
     offset += rows.length;
   }
 
   return counts;
+}
+
+async function getClickCountsByCardId(range: ClickPeriodRange): Promise<Map<string, number>> {
+  return (
+    (await getClickCountsByCardIdFromRpc(range)) ||
+    getClickCountsByCardIdWithPagination(range)
+  );
 }
 
 // URLバリデーション (http/httpsのみ、javascript:やdata:の排除)
@@ -186,9 +271,11 @@ async function deleteImageFromStorage(imageUrl: string) {
 /**
  * 全てのカードを取得 (クリック数付き)
  */
-export async function getCards(): Promise<CardWithClickCount[]> {
+export async function getCards(period: ClickPeriod = 'all'): Promise<CardWithClickCount[]> {
+  const range = getClickPeriodRange(period);
+
   if (isLocalStoreEnabled()) {
-    return getLocalCards();
+    return getLocalCards(range);
   }
 
   // RLSを回避して admin クライアントで取得
@@ -202,7 +289,7 @@ export async function getCards(): Promise<CardWithClickCount[]> {
     return [];
   }
 
-  const clickCounts = await getClickCountsByCardId();
+  const clickCounts = await getClickCountsByCardId(range);
   return cards.map((card) => ({
     ...card,
     click_count: clickCounts.get(card.id) || 0,

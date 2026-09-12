@@ -56,11 +56,14 @@ test('card opens persist and are shown on reload and server restart', { timeout:
     await response.text();
   }
   const count = async () => (await store.getLocalCards())[0].click_count;
-  async function checkAdmin(expected) {
-    const response = await fetch(`${baseUrl}/admin/cards`, { headers: { authorization } });
+  async function checkAdmin(expected, period = null) {
+    const query = period ? `?period=${period}` : '';
+    const response = await fetch(`${baseUrl}/admin/cards${query}`, { headers: { authorization } });
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.ok(html.includes(`${expected}<!-- --> クリック`), 'reload must show the persisted count');
+    assert.ok(html.includes('直近24時間'));
+    assert.ok(html.includes('クリック数が多い順'));
     assert.equal(await count(), expected);
   }
 
@@ -69,6 +72,7 @@ test('card opens persist and are shown on reload and server restart', { timeout:
   assert.equal(await count(), 1);
   await open();
   await checkAdmin(2);
+  await checkAdmin(2, '24h');
   await open({ method: 'HEAD' });
   await open({ headers: { 'user-agent': 'Twitterbot/1.0' } });
   await open({ headers: { purpose: 'prefetch' } });

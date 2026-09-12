@@ -65,6 +65,14 @@ test('local counts survive concurrency, edits, failed writes and a new process',
     assert.equal(JSON.parse(stdout)[0].click_count, 123);
     assert.equal((await store.getLocalDashboardStats()).totalClicks, 123);
   });
+
+  await t.test('local card counts respect the selected time range', async () => {
+    const past = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    assert.equal((await store.getLocalCards({ start: past, end: future }))[0].click_count, 123);
+    assert.equal((await store.getLocalCards({ start: future, end: null }))[0].click_count, 0);
+    assert.equal((await store.getLocalCards({ start: null, end: past }))[0].click_count, 0);
+  });
 });
 
 test('count page opens, excluding crawlers, HEAD and speculative requests', () => {

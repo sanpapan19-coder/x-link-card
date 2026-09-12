@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { lock } from 'proper-lockfile';
 import type { Card, CardWithClickCount, ClickLog } from '@/types';
+import { ClickPeriodRange, isClickInPeriod } from '@/lib/click-period';
 
 type LocalData = {
   cards: Card[];
@@ -114,7 +115,9 @@ export async function deleteLocalImage(imageUrl: string) {
   }
 }
 
-export async function getLocalCards(): Promise<CardWithClickCount[]> {
+export async function getLocalCards(
+  range: ClickPeriodRange = { start: null, end: null }
+): Promise<CardWithClickCount[]> {
   const data = await readData();
 
   return data.cards
@@ -122,7 +125,9 @@ export async function getLocalCards(): Promise<CardWithClickCount[]> {
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .map((card) => ({
       ...card,
-      click_count: data.click_logs.filter((log) => log.card_id === card.id).length,
+      click_count: data.click_logs.filter(
+        (log) => log.card_id === card.id && isClickInPeriod(log.clicked_at, range)
+      ).length,
     }));
 }
 

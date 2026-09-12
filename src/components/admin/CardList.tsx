@@ -13,20 +13,26 @@ import {
   CheckCircle,
   AlertCircle,
   Search,
-  Layers
+  Layers,
+  ArrowUpDown
 } from 'lucide-react';
 import { CardWithClickCount } from '@/types';
 import { deleteCardAction } from '@/app/actions/cards';
 import { buildXPostText, getStoredPostText } from '@/lib/post-text-store';
+import { CLICK_PERIOD_OPTIONS, ClickPeriod } from '@/lib/click-period';
 
 interface CardListProps {
   initialCards: CardWithClickCount[];
+  clickPeriod: ClickPeriod;
 }
 
-export default function CardList({ initialCards }: CardListProps) {
+type CardSortOrder = 'newest' | 'clicks';
+
+export default function CardList({ initialCards, clickPeriod }: CardListProps) {
   const router = useRouter();
   const [deletedCardIds, setDeletedCardIds] = useState<Set<string>>(() => new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<CardSortOrder>('newest');
   const cards = React.useMemo(
     () => initialCards.filter((card) => !deletedCardIds.has(card.id)),
     [deletedCardIds, initialCards]
@@ -110,40 +116,96 @@ export default function CardList({ initialCards }: CardListProps) {
     }
   };
 
-  // 検索フィルタリング
-  const filteredCards = cards.filter(card => {
+  const filteredCards = React.useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return (
+    const filtered = cards.filter((card) => (
       card.title.toLowerCase().includes(term) ||
       (card.description || '').toLowerCase().includes(term) ||
       card.slug.toLowerCase().includes(term) ||
       card.destination_url.toLowerCase().includes(term)
-    );
-  });
+    ));
+
+    return filtered.sort((a, b) => {
+      if (sortOrder === 'clicks') {
+        return b.click_count - a.click_count || b.created_at.localeCompare(a.created_at);
+      }
+      return b.created_at.localeCompare(a.created_at);
+    });
+  }, [cards, searchTerm, sortOrder]);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    return d.toLocaleDateString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
   };
 
   return (
     <div className="space-y-6">
       {/* 検索・ツールバー */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="relative w-full sm:max-w-xs">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-slate-400" />
-          </div>
-          <input
-            type="text"
-            placeholder="カードを検索..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-          />
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+          <span className="text-xs font-semibold text-slate-500 shrink-0">集計期間</span>
+          <nav
+            aria-label="クリック集計期間"
+            className="flex w-full lg:w-auto overflow-x-auto rounded-xl bg-slate-100 p-1"
+          >
+            {CLICK_PERIOD_OPTIONS.map((option) => {
+              const isActive = option.value === clickPeriod;
+              return (
+                <Link
+                  key={option.value}
+                  href={option.value === 'all' ? '/admin/cards' : `/admin/cards?period=${option.value}`}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`min-h-9 flex-1 lg:flex-none whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold text-center transition-colors ${
+                    isActive
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {option.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <span className="text-[11px] text-slate-400 lg:ml-auto whitespace-nowrap">
+            日本時間で表示
+          </span>
         </div>
-        <div className="text-xs text-slate-400 font-semibold self-end sm:self-center">
-          全 {filteredCards.length} 件を表示中
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-between sm:items-center">
+          <div className="relative w-full sm:max-w-xs">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-slate-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="カードを検索..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div className="flex w-full sm:w-auto items-center gap-3">
+            <div className="relative flex-1 sm:flex-none">
+              <ArrowUpDown className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <select
+                aria-label="カードの並び順"
+                value={sortOrder}
+                onChange={(event) => setSortOrder(event.target.value as CardSortOrder)}
+                className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-xs font-semibold text-slate-600 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="newest">登録日が新しい順</option>
+                <option value="clicks">クリック数が多い順</option>
+              </select>
+            </div>
+            <div className="text-xs text-slate-400 font-semibold whitespace-nowrap">
+              {filteredCards.length} 件
+            </div>
+          </div>
         </div>
       </div>
 
@@ -190,7 +252,10 @@ export default function CardList({ initialCards }: CardListProps) {
                     alt={card.title || 'カード画像'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute top-3 right-3 bg-slate-900/70 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                  <div
+                    className="absolute top-3 right-3 bg-slate-900/70 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1"
+                    title={`${CLICK_PERIOD_OPTIONS.find((option) => option.value === clickPeriod)?.label || '全期間'}のクリック数`}
+                  >
                     <MousePointerClick className="w-3.5 h-3.5 text-indigo-400" />
                     {card.click_count} クリック
                   </div>
