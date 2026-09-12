@@ -1,5 +1,7 @@
 export const CLICK_PERIOD_OPTIONS = [
   { value: '24h', label: '直近24時間' },
+  { value: '48h', label: '直近48時間' },
+  { value: '72h', label: '直近72時間' },
   { value: '7d', label: '直近7日' },
   { value: '30d', label: '直近30日' },
   { value: 'all', label: '全期間' },
@@ -14,6 +16,8 @@ export type ClickPeriodRange = {
 
 const PERIOD_DURATION_MS: Record<Exclude<ClickPeriod, 'all'>, number> = {
   '24h': 24 * 60 * 60 * 1000,
+  '48h': 48 * 60 * 60 * 1000,
+  '72h': 72 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
   '30d': 30 * 24 * 60 * 60 * 1000,
 };
